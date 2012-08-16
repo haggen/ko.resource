@@ -56,7 +56,7 @@ Now, let's play with your new model.
 
     // Plus, it will assume your server's response is carrying an '_id' and will
     // automagically update your models for you.
-    bob._id();  //-> 1 or whatever your server's generate for auto-increment ID
+    bob._id();  //-> 1 or whatever your server's generate for ID
 
     // We can update our model and save it again to the database:
     // Calling save on our model already with '_id' will make a PUT request to '/users/1',
