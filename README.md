@@ -1,8 +1,12 @@
 # Knockout Resource
 
-Knockout Resource is an ORM to your models in Knockout. It's made to work with any RESTful JSON API.
+Knockout Resource is an ORM for Knockout. It's designed to work with Mongo, but can interact with any RESTful API that talks JSON.
 
-## Usage:
+## Dependency:
+
+- Knockout 2.1 - http://knockoutjs.com
+
+## Guide:
 
     var User;
 
@@ -11,36 +15,37 @@ Knockout Resource is an ORM to your models in Knockout. It's made to work with a
       // The first argument is the path to the resource
       // In this example, every action will be called with '/users' prefix, so
       // to fetch all your collection it will make a GET request to '/users'.
-      // Or to save a new object, it will make a POST request to '/users'.
       '/users',
 
-      // The second argument is our schema for observable properties.
+      // The second argument is the schema for observable attributes.
       // It's optional, but if you want to apply bindings to an empty model,
-      // you must first set here the default values your're going to use.
+      // you must first set here the default values your're going to use,
+      // otherwise you'll get undefined.
       {
         name: '',
         age: 0,
 
-        // Functions here will treated as ko.computed
+        // Functions here will result in ko.computed
         intro: function() {
           return 'Hi, my name is ' + this.name() + ' and I'm ' + this.age() + ' years old';
         }
       },
 
-      // The third and last argument is a hash of arbitrary, non observable properties and methods
-      // of our model. It may contain a method called 'initialize' that will be triggered as
-      // constructor for your new models.
+      // The third and last argument is a hash of arbitrary, non observable attributes and methods
+      // of our model. It also accept a special method called 'initialize' that, if set, will
+      // be called when constructing a new instance.
       {
         introduce: function() {
           alert(this.intro());
         },
+
         initialize: function() {
           this.introduce();
         }
       }
     });
 
-Now, let's play with your new model.
+Now, let's play with our new model.
 
     var bob = new User({
       name: 'Bob',
@@ -54,8 +59,8 @@ Now, let's play with your new model.
     // serialized as payload: { name: 'Bob', age: 24 }
     bob.save();
 
-    // Plus, it will assume your server's response is carrying an '_id' and will
-    // automagically update your models for you.
+    // Plus, it will assume the server's response is carrying an '_id' and will
+    // automagically update our model's attributes.
     bob._id();  //-> 1 or whatever your server's generate for ID
 
     // We can update our model and save it again to the database:
@@ -64,7 +69,7 @@ Now, let's play with your new model.
     bob.age(25);
     bob.save();
 
-We use `_id` because it's intent to work with Mongo out-of-the-box and Mongo's API already respond with it.
+We use `_id` because it's intended to work with Mongo and Mongo's API already respond with _id.
 
     // We may destroy our recent created object with this:
     bob.destroy(); //-> It retains the model's current data
@@ -72,7 +77,7 @@ We use `_id` because it's intent to work with Mongo out-of-the-box and Mongo's A
 If you would like to fetch all your users you can do this:
 
     User.fetch(function(users) {
-      // 'users' here are aready instantiated models for your convinience,
-      // and since we told it to alert an introduction, it will alert for every
+      // 'users' here are already instantiated models for your convinience,
+      // and since we told it to alert an introduction, it will do for every
       // user fetched from your database.
     });
