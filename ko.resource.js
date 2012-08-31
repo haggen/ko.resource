@@ -21,17 +21,30 @@
   };
 
   request = function(method, url, params, callback) {
-    var r = xhr();
+    var i, querystring = '', r = xhr();
 
-    r.open(method, url, true);
+    if(method.match(/get|delete/i) && params instanceof Object) {
+      querystring = [];
+
+      for(i in params) {
+        if(params.hasOwnProperty(i)) {
+          querystring.push(i + '=' + params[i]);
+        }
+      }
+
+      querystring = '?' + querystring.join('&');
+    }
+
+    console.log('Request:', method, url + querystring);
+    r.open(method, url + querystring, true);
 
     r.onreadystatechange = function() {
       if(r.readyState === 4) {
-        callback(JSON.parse(r.responseText));
+        callback(JSON.parse(r.responseText || ''));
       }
     };
 
-    r.setRequestHeader('Content-Type', 'application/javascript');
+    // r.setRequestHeader('Content-Type', 'application/json');
 
     r.send(params || null);
   };
@@ -121,7 +134,7 @@
       instance.save = function(callback) {
         if('_id' in instance) {
           request('put', path + '/' + instance._id(), instance.serialize(), function(response) {
-            if(callback.call !== undefined) {
+            if(callback && callback.call) {
               callback.call(instance, response);
             }
           });
@@ -130,7 +143,7 @@
             // We assume your're using Mongo and that the response comes with an ID
             instance.update_attributes({ _id: response._id });
 
-            if(callback.call !== undefined) {
+            if(callback && callback.call) {
               callback.call(instance, response);
             }
           });
@@ -142,7 +155,7 @@
         request('get', path + '/' + instance._id(), null, function(response) {
           instance.update_attributes(response);
 
-          if(callback.call !== undefined) {
+          if(callback && callback.call) {
             callback.call(instance, response);
           }
         });
@@ -151,7 +164,7 @@
       // Destroy object from the server but retains current data
       instance.destroy = function(callback) {
         request('delete', path + '/' + instance._id(), function(response) {
-          if(callback.call !== undefined) {
+          if(callback && callback.call) {
             callback.call(instance, response);
           }
         });
@@ -191,7 +204,7 @@
           collection.push(new resource(response[i]));
         }
 
-        return collection;
+        callback(collection);
       });
     };
 
