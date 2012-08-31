@@ -1,52 +1,25 @@
 /*
- * Knockout Resource v0.4 2012-08-29 19:35:17 -0300
+ * Knockout Resource v0.4.2 2012-08-31 16:57:00 -0300
  * by Arthur Corenzan <arthur@corenzan.com>
  * licensed under http://creativecommons.org/licenses/by/3.0
  * more on http://github.com/haggen/ko.resource
  */
-(function(ko, undefined) {
-  var xhr, request;
+(function($, ko, undefined) {
 
-  // AJAX requester
-  xhr = function() {
-    try {
-      return new ActiveXObject('Msxml2.XMLHTTP');
-    } catch(e) {
-      try {
-        return new ActiveXObject('Microsoft.XMLHTTP');
-      } catch(e) {
-        return new XMLHttpRequest();
-      }
-    }
-  };
+  var request;
 
-  request = function(method, url, params, callback) {
-    var i, querystring = '', r = xhr();
-
-    if(method.match(/get|delete/i) && params instanceof Object) {
-      querystring = [];
-
-      for(i in params) {
-        if(params.hasOwnProperty(i)) {
-          querystring.push(i + '=' + params[i]);
-        }
-      }
-
-      querystring = '?' + querystring.join('&');
-    }
-
-    console.log('Request:', method, url + querystring);
-    r.open(method, url + querystring, true);
-
-    r.onreadystatechange = function() {
-      if(r.readyState === 4) {
-        callback(JSON.parse(r.responseText || ''));
-      }
+  // Make AJAX request
+  request = function(verb, path, params, callback) {
+    var options = {
+      url: path,
+      type: verb,
+      data: params,
+      success: callback
     };
 
-    // r.setRequestHeader('Content-Type', 'application/json');
+    console.log('Request', options);
 
-    r.send(params || null);
+    $.ajax(options);
   };
 
   // Resource constructor
@@ -65,76 +38,65 @@
     }
 
     resource = function(source) {
-      var i, instance = this;
+      var instance = this;
 
-      // Data source, may be a JSON string os JS Object
       if(source === undefined) {
         source = {};
       }
 
       // Attach arbitrary attributes and methods
-      for(i in arbitrary) {
-        if(arbitrary.hasOwnProperty(i)) {
-          if(arbitrary[i] instanceof Function) {
-            instance[i] = function() {
-              arbitrary[i].apply(instance, arguments);
-            };
-          } else {
-            instance[i] = arbitrary[i];
-          }
+      $.each(arbitrary, function(name, value) {
+        if(value instanceof Function) {
+          instance[name] = function() {
+            value.apply(instance, arguments);
+          };
+        } else {
+          instance[name] = value;
         }
-      }
+      });
 
-      // Recursively serialize your model, excluding attributes
-      // beginning with double underscore or functions
+      // Recursively serialize your model, removing attributes
+      // starting with two underscores and functions
       instance.serialize = function() {
-        var i, j, data = ko.toJS(instance);
+        var data = ko.toJS(instance);
 
-        for(i in data) {
-          if(data.hasOwnProperty(i)) {
-            if(i.indexOf('__') === 0 || data[i] instanceof Function) {
-              delete data[i];
-            } else if(data[i] instanceof Array) {
-              for(j = 0; j < data[i].length; j++) {
-                if('serialize' in data[i][j]) {
-                  data[i][j] = data[i][j].serialize();
-                }
+        $.each(data, function(name, value) {
+          if(name.indexOf('__') === 0 || typeof value === 'function') {
+            delete data[name];
+          } else if(value instanceof Array) {
+            $.each(value, function(index, v) {
+              if('serialize' in v) {
+                value[index] = v.serialize();
               }
-            }
+            });
           }
-        }
+        });
 
         return data;
       };
 
       // Update observable values
-      // Originally this method was called `set`, but it was too
-      // common and could conflict with attribute names
       instance.update_attributes = function(attributes) {
-        var i;
-
-        for(i in attributes) {
-          if(attributes.hasOwnProperty(i)) {
-            if(instance[i] === undefined) {
-              if(attributes[i] instanceof Function) {
-                instance[i] = ko.computed(attributes[i], instance);
-              } else if(attributes[i] instanceof Array) {
-                instance[i] = ko.observableArray(attributes[i]);
-              } else {
-                instance[i] = ko.observable(attributes[i]);
-              }
+        $.each(attributes, function(attr, value) {
+          if(instance[attr] === undefined) {
+            if(value instanceof Function) {
+              instance[attr] = ko.computed(value, instance);
+            } else if(value instanceof Array) {
+              instance[attr] = ko.observableArray(value);
             } else {
-              instance[i](attributes[i]);
+              instance[attr] = ko.observable(value);
             }
+          } else {
+            instance[attr](value);
           }
-        }
+        });
       };
 
       // Send model's data to the server, auto-switching between POST and PUT
       instance.save = function(callback) {
         if('_id' in instance) {
           request('put', path + '/' + instance._id(), instance.serialize(), function(response) {
-            if(callback && callback.call) {
+            if(callback instanceof Function) {
               callback.call(instance, response);
             }
           });
@@ -143,7 +105,7 @@
             // We assume your're using Mongo and that the response comes with an ID
             instance.update_attributes({ _id: response._id });
 
-            if(callback && callback.call) {
+            if(callback instanceof Function) {
               callback.call(instance, response);
             }
           });
@@ -155,7 +117,7 @@
         request('get', path + '/' + instance._id(), null, function(response) {
           instance.update_attributes(response);
 
-          if(callback && callback.call) {
+          if(callback instanceof Function) {
             callback.call(instance, response);
           }
         });
@@ -164,20 +126,20 @@
       // Destroy object from the server but retains current data
       instance.destroy = function(callback) {
         request('delete', path + '/' + instance._id(), function(response) {
-          if(callback && callback.call) {
+          if(callback instanceof Function) {
             callback.call(instance, response);
           }
         });
       };
 
       // Request for custom actions
-      instance.request = function(method, action, data, callback) {
+      instance.request = function(verb, action, params, callback) {
         if(callback === undefined) {
-          callback = data;
-          data = {};
+          callback = params;
+          params = {};
         }
 
-        request(method, path + action, data, function(response) {
+        request(verb, path + action, params, function(response) {
           callback.call(instance, response);
         });
       };
@@ -185,7 +147,7 @@
       instance.update_attributes(schema);
       instance.update_attributes(source instanceof String ? JSON.parse(source) : source);
 
-      if(instance.initialize !== undefined) {
+      if('initialize' in instance) {
         instance.initialize(source);
       }
     };
@@ -198,13 +160,9 @@
       }
 
       request('get', path, query, function(response) {
-        var i, collection = [];
-
-        for(i = 0; i < response.length; i++) {
-          collection.push(new resource(response[i]));
-        }
-
-        callback(collection);
+        callback($.map(response, function(source) {
+          return new resource(source);
+        }));
       });
     };
 
@@ -214,4 +172,4 @@
   // Expose the plugin
   ko.resource = Resource;
 
-})(window.ko);
+})(window.jQuery, window.ko);
