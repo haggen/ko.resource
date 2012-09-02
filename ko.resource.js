@@ -10,14 +10,19 @@
 
   // Make AJAX request
   request = function(verb, path, params, callback) {
-    var options = {
+    var options;
+
+    if(callback === undefined) {
+      callback = params;
+      params = {};
+    }
+
+    options = {
       url: path,
       type: verb,
       data: params,
       success: callback
     };
-
-    console.log('Request', options);
 
     $.ajax(options);
   };
